@@ -10,6 +10,7 @@
 6. [Testing Guide](./06-testing.md) - How to test the implementation
 7. [Troubleshooting](./07-troubleshooting.md) - Common issues and solutions
 8. [Bar Raiser Features](./08-bar-raiser.md) - Advanced features implementation
+9. [Function Call Flow](./09-function-call-flow.md) - Complete execution flow with file locations
 
 ---
 

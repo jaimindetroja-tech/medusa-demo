@@ -156,7 +156,7 @@ export default async function syncProductsJob(container: MedusaContainer) {
     console.log("=".repeat(60))
 
     try {
-        // Step 1: Fetch all products from DummyJSON API
+        // Step 1: Fetch all products from DummyJSON API©
         const externalProducts = await fetchAllProducts()
 
         // Ensure unique handles

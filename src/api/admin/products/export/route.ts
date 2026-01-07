@@ -24,6 +24,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
                 "collection.title",
                 "type.value",
                 "tags.value",
+                "categories.name",
                 "metadata",
                 "created_at",
             ],
@@ -47,6 +48,9 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
             // Flatten images
             const images = product.images.map((i: any) => i.url).join(", ")
 
+            // Flatten categories
+            const categories = product.categories?.map((c: any) => c.name).join(", ") || ""
+
             return {
                 ID: product.id,
                 Title: product.title,
@@ -55,6 +59,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
                 Collection: product.collection?.title || "",
                 Type: product.type?.value || "",
                 Tags: product.tags?.map((t: any) => t.value).join(", ") || "",
+                Categories: categories,
                 Variants: variants,
                 Options: options,
                 Images: images,

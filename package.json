@@ -1,5 +1,5 @@
 {
-  "name": "medusa-store",
+  "name": "my-medusa-store",
   "version": "0.0.1",
   "description": "A starter for Medusa projects.",
   "author": "Medusa (https://medusajs.com)",
@@ -25,8 +25,7 @@
     "@medusajs/admin-sdk": "2.12.4",
     "@medusajs/cli": "2.12.4",
     "@medusajs/framework": "2.12.4",
-    "@medusajs/medusa": "2.12.4",
-    "json-2-csv": "^5.5.10"
+    "@medusajs/medusa": "2.12.4"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.12.4",

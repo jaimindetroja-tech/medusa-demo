@@ -1,5 +1,4 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
-import { resolve } from 'path'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
@@ -14,10 +13,12 @@ module.exports = defineConfig({
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
   },
-  modules: [{
-    resolve: "./src/modules/brand"
-  }, {
-    resolve: "./src/modules/category"
-  }],
+  modules: {
+    brand: {
+      resolve: "./src/modules/brand",
+    },
+    review: {
+      resolve: "./src/modules/review",
+    },
+  },
 })
-

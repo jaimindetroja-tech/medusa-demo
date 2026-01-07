@@ -1,83 +1,65 @@
+import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
+import { Modules } from "@medusajs/framework/utils";
 
-import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { json2csv } from "json-2-csv"
+/**
+ * Basic CSV stringifier
+ */
+function jsonToCsv(items: Record<string, any>[]): string {
+  if (items.length === 0) {
+    return "";
+  }
+  
+  const headers = Object.keys(items[0]);
+  const csvRows = [headers.join(",")];
+  
+  for (const item of items) {
+    const values = headers.map(header => {
+      const val = item[header];
+      // Escape logic: wrap strings in quotes, escape existing quotes
+      if (typeof val === "string") {
+        const escaped = val.replace(/"/g, '""');
+        return `"${escaped}"`;
+      }
+      return val;
+    });
+    csvRows.push(values.join(","));
+  }
+  
+  return csvRows.join("\n");
+}
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-    try {
-        const query = req.scope.resolve("query")
+  const productModule = req.scope.resolve(Modules.PRODUCT);
 
-        // Fetch all products with necessary relations
-        const { data: products } = await query.graph({
-            entity: "product",
-            fields: [
-                "id",
-                "title",
-                "handle",
-                "handle",
-                "description",
-                "variants.sku",
-                "variants.prices.amount",
-                "variants.prices.currency_code",
-                "options.title",
-                "options.values",
-                "images.url",
-                "collection.title",
-                "type.value",
-                "tags.value",
-                "categories.name",
-                "metadata",
-                "created_at",
-            ],
-        })
-
-        if (!products || products.length === 0) {
-            return res.status(404).json({ message: "No products found" })
-        }
-
-        // Transform data for CSV readability (flattening)
-        const flattenedProducts = products.map((product: any) => {
-            // Flatten variants for simpler view (joining SKUs/Prices)
-            const variants = product.variants.map((v: any) => {
-                const prices = v.prices.map((p: any) => `${p.amount} ${p.currency_code}`).join(", ")
-                return `[SKU: ${v.sku || 'N/A'}, Prices: ${prices}]`
-            }).join("; ")
-
-            // Flatten options
-            const options = product.options.map((o: any) => `${o.title}: ${o.values?.join(", ")}`).join("; ")
-
-            // Flatten images
-            const images = product.images.map((i: any) => i.url).join(", ")
-
-            // Flatten categories
-            const categories = product.categories?.map((c: any) => c.name).join(", ") || ""
-
-            return {
-                ID: product.id,
-                Title: product.title,
-                Handle: product.handle,
-                Description: product.description,
-                Collection: product.collection?.title || "",
-                Type: product.type?.value || "",
-                Tags: product.tags?.map((t: any) => t.value).join(", ") || "",
-                Categories: categories,
-                Variants: variants,
-                Options: options,
-                Images: images,
-                Created_At: product.created_at,
-            }
-        })
-
-        // Generate CSV
-        const csv = json2csv(flattenedProducts)
-
-        // Set headers for download
-        res.setHeader("Content-Type", "text/csv")
-        res.setHeader("Content-Disposition", `attachment; filename=products_export_${Date.now()}.csv`)
-
-        res.send(csv)
-
-    } catch (error) {
-        console.error("Export failed:", error)
-        res.status(500).json({ message: "Failed to export products", error: error.message })
+  // 1. Fetch products
+  // For production, we would use pagination loop. For now, fetching reasonable limit.
+  const [products, count] = await productModule.listAndCountProducts(
+    {}, 
+    { 
+      take: 1000,
+      select: ["id", "title", "handle", "status", "description", "created_at"]
     }
-}
+  );
+
+  // 2. Transform to Flat JSON for CSV
+  const flatProducts = products.map(p => ({
+    id: p.id,
+    title: p.title,
+    handle: p.handle,
+    status: p.status,
+    description: p.description?.slice(0, 100) || "", // Truncate desc for cleaner CSV
+    created_at: p.created_at ? new Date(p.created_at).toISOString() : ""
+  }));
+
+  // 3. Convert to CSV
+  const csvContent = jsonToCsv(flatProducts);
+
+  // 4. Send Response
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader(
+    "Content-Disposition", 
+    `attachment; filename="products_export_${Date.now()}.csv"`
+  );
+  
+  res.send(csvContent);
+};

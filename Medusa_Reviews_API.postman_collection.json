@@ -1,0 +1,213 @@
+{
+  "info": {
+    "name": "Medusa Product Reviews API",
+    "description": "Complete API collection for testing the product review system in Medusa",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:9000",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "prod_123",
+      "type": "string"
+    },
+    {
+      "key": "review_id",
+      "value": "review_123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Store APIs",
+      "item": [
+        {
+          "name": "Add Product Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent product! Highly recommend.\",\n  \"customer_name\": \"John Doe\",\n  \"customer_email\": \"john.doe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/store/products/{{product_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["store", "products", "{{product_id}}", "reviews"]
+            },
+            "description": "Create a new review for a product. Reviews start in 'pending' status and need admin approval to be visible."
+          }
+        },
+        {
+          "name": "Get Product Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/store/products/{{product_id}}/reviews?limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["store", "products", "{{product_id}}", "reviews"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all approved reviews for a product. Only approved reviews are returned."
+          }
+        },
+        {
+          "name": "Get Product Average Rating",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/store/products/{{product_id}}/reviews/average",
+              "host": ["{{base_url}}"],
+              "path": ["store", "products", "{{product_id}}", "reviews", "average"]
+            },
+            "description": "Get average rating and rating breakdown for a product based on approved reviews."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin APIs",
+      "item": [
+        {
+          "name": "List All Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_ADMIN_TOKEN",
+                "description": "Replace with actual admin JWT token"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/reviews?status=pending&limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reviews"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status: pending, approved, rejected, or all"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all reviews for admin moderation. Use status filter to see pending reviews that need approval."
+          }
+        },
+        {
+          "name": "Approve Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_ADMIN_TOKEN",
+                "description": "Replace with actual admin JWT token"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reviews/{{review_id}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reviews", "{{review_id}}", "approve"]
+            },
+            "description": "Approve a pending review. Once approved, the review will be visible on the product page."
+          }
+        },
+        {
+          "name": "Reject Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_ADMIN_TOKEN",
+                "description": "Replace with actual admin JWT token"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Inappropriate content\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reviews/{{review_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reviews", "{{review_id}}", "reject"]
+            },
+            "description": "Reject a pending review. The review will be marked as rejected and won't be visible."
+          }
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_ADMIN_TOKEN",
+                "description": "Replace with actual admin JWT token"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/reviews/{{review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reviews", "{{review_id}}"]
+            },
+            "description": "Permanently delete a review from the database."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set timestamp for unique test data",
+          "pm.globals.set(\"timestamp\", new Date().getTime());"
+        ]
+      }
+    }
+  ]
+}

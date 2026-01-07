@@ -1,33 +1,42 @@
-// src/workflows/create-brand.ts
 import {
-    createWorkflow,
-    WorkflowResponse,
-} from "@medusajs/framework/workflows-sdk"
-import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk"
+  createStep,
+  createWorkflow,
+  StepResponse,
+  WorkflowResponse,
+} from "@medusajs/framework/workflows-sdk";
+import { BRAND_MODULE } from "../modules/brand";
+import BrandModuleService from "../modules/brand/service";
 
-// Step: Create brand
-const createBrandStep = createStep(
-    "create-brand",
-    async (input: { name: string }, { container }) => {
-        const service = container.resolve("brand")
-        const brand = await service.createBrands(input)
-        return new StepResponse(brand, brand.id)
-    },
-    // Compensation function (rollback)
-    async (brandId, { container }) => {
-        if (!brandId) {
-            return
-        }
-        const service = container.resolve("brand")
-        await service.deleteBrands(brandId)
-    }
-)
+export type CreateBrandStepInput = {
+  name: string;
+};
 
-// Workflow: Orchestrate steps
+export const createBrandStep = createStep(
+  "create-brand-step",
+  async (input: CreateBrandStepInput, { container }) => {
+    const brandModuleService: BrandModuleService =
+      container.resolve(BRAND_MODULE);
+
+    const brand = await brandModuleService.createBrands(input);
+
+    return new StepResponse(brand, brand.id);
+  },
+  async (id: string, { container }) => {
+    const brandModuleService: BrandModuleService =
+      container.resolve(BRAND_MODULE);
+
+    await brandModuleService.deleteBrands(id);
+  }
+);
+
+type CreateBrandWorkflowInput = {
+  name: string;
+};
+
 export const createBrandWorkflow = createWorkflow(
-    "create-brand",
-    (input: { name: string }) => {
-        const brand = createBrandStep(input)
-        return new WorkflowResponse({ brand })
-    }
-)
+  "create-brand",
+  (input: CreateBrandWorkflowInput) => {
+    const brand = createBrandStep(input);
+    return new WorkflowResponse(brand);
+  }
+);

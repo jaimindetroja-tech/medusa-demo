@@ -1,13 +1,14 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
-import { Button, Container, Heading, Text, toast, Toaster } from "@medusajs/ui"
+import { Button, Container, Heading, Text, toast, Toaster, IconButton } from "@medusajs/ui"
 import { useState } from "react"
-import { ArrowPath } from "@medusajs/icons"
+import { ArrowPath, ArrowDownTray } from "@medusajs/icons"
 
 const ProductSyncWidget = () => {
-    const [isLoading, setIsLoading] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
+    const [isExporting, setIsExporting] = useState(false)
 
     const handleSync = async () => {
-        setIsLoading(true)
+        setIsSyncing(true)
         try {
             const res = await fetch("/admin/sync-products", {
                 method: "POST"
@@ -28,7 +29,33 @@ const ProductSyncWidget = () => {
                 description: "Failed to trigger product sync."
             })
             console.error(error)
-            setIsLoading(false)
+            setIsSyncing(false)
+        }
+    }
+
+    const handleExport = async () => {
+        setIsExporting(true)
+        try {
+            const response = await fetch("/admin/products/export")
+
+            if (!response.ok) throw new Error("Failed to export")
+
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = `products_export_${Date.now()}.csv`
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+
+            toast.success("Success", { description: "Export downloaded successfully" })
+        } catch (error) {
+            toast.error("Error", { description: "Failed to export products" })
+            console.error(error)
+        } finally {
+            setIsExporting(false)
         }
     }
 
@@ -36,19 +63,29 @@ const ProductSyncWidget = () => {
         <Container className="mb-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <Heading level="h2">Product Sync</Heading>
+                    <Heading level="h2">Product Actions</Heading>
                     <Text className="text-ui-fg-subtle">
-                        Manually trigger synchronization with external product source.
+                        Manage product synchronization and data export.
                     </Text>
                 </div>
-                <Button
-                    variant="secondary"
-                    onClick={handleSync}
-                    isLoading={isLoading}
-                >
-                    {!isLoading && <ArrowPath />}
-                    Sync Products
-                </Button>
+                <div className="flex items-center gap-x-2">
+                    <Button
+                        variant="secondary"
+                        onClick={handleExport}
+                        isLoading={isExporting}
+                    >
+                        {!isExporting && <ArrowDownTray />}
+                        Export CSV
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={handleSync}
+                        isLoading={isSyncing}
+                    >
+                        {!isSyncing && <ArrowPath />}
+                        Sync Products
+                    </Button>
+                </div>
             </div>
             <Toaster />
         </Container>

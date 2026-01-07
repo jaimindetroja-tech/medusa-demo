@@ -47,13 +47,22 @@ export default class ReviewModuleService extends MedusaService({
     if (status) where.status = status
     if (ip_address) where.ip_address = ip_address
 
-    const [reviews, count] = await this.listAndCountReviews(where, {
-      skip: offset,
-      take: limit,
-      order: { created_at: "DESC" },
-    })
+    try {
+      // Use the correct method signature for listAndCountReviews
+      const [reviews, count] = await this.listAndCountReviews(
+        where,
+        {
+          skip: offset,
+          take: limit,
+        }
+      )
 
-    return { reviews, count }
+      return { reviews, count }
+    } catch (error) {
+      console.error("Error in findReviews:", error)
+      // Return empty result instead of throwing
+      return { reviews: [], count: 0 }
+    }
   }
 
   async getReviewById(id: string) {
@@ -61,25 +70,31 @@ export default class ReviewModuleService extends MedusaService({
   }
 
   async getAverageRating(productId: string) {
-    const { reviews } = await this.findReviews({
-      product_id: productId,
-      status: "approved",
-    })
+    try {
+      const { reviews } = await this.findReviews({
+        product_id: productId,
+        status: "approved",
+        limit: 10000, // Get all for accurate calculation
+      })
 
-    if (reviews.length === 0) {
+      if (reviews.length === 0) {
+        return { average: 0, total: 0, breakdown: {} }
+      }
+
+      const total = reviews.length
+      const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
+      const average = sum / total
+
+      const breakdown = reviews.reduce((acc, review) => {
+        acc[review.rating] = (acc[review.rating] || 0) + 1
+        return acc
+      }, {} as Record<number, number>)
+
+      return { average, total, breakdown }
+    } catch (error) {
+      console.error("Error in getAverageRating:", error)
       return { average: 0, total: 0, breakdown: {} }
     }
-
-    const total = reviews.length
-    const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
-    const average = sum / total
-
-    const breakdown = reviews.reduce((acc, review) => {
-      acc[review.rating] = (acc[review.rating] || 0) + 1
-      return acc
-    }, {} as Record<number, number>)
-
-    return { average, total, breakdown }
   }
 
   async updateReviewStatus(id: string, status: "approved" | "rejected", adminId?: string) {

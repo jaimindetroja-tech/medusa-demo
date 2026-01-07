@@ -50,6 +50,7 @@ interface MedusaProductInput {
     }>
     thumbnail?: string
     images?: { url: string }[]
+    category_ids?: string[]
 }
 
 const DUMMYJSON_API_URL = "https://dummyjson.com/products"
@@ -181,13 +182,18 @@ export default async function syncProductsJob(container: MedusaContainer) {
                 .replace(/^-+|-+$/g, ""),
         }))
 
+        // categoryMap will store slug -> category_id mapping
+        let categoryMap: Record<string, string> = {}
+
         try {
             const { result: categoryResult } = await syncCategoriesWorkflow(container).run({
                 input: { categories: categoryInputs },
             })
+            categoryMap = categoryResult.categoryMap
             console.log(
-                `✅ Categories synced: ${categoryResult.created.length} created, ${categoryResult.updated.length} updated`
+                `✅ Categories synced: ${categoryResult.created} created, ${categoryResult.existing} existing`
             )
+            console.log(`📂 Category map: ${Object.keys(categoryMap).length} categories mapped`)
         } catch (error) {
             console.error("⚠️  Category sync failed (continuing with product sync):", error)
             // Don't fail the entire job if category sync fails
@@ -263,6 +269,16 @@ export default async function syncProductsJob(container: MedusaContainer) {
                 }
                 usedHandles.add(handle)
                 product.handle = handle
+
+                // Add category_id if category exists in map
+                const categorySlug = externalProduct.category
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")
+                if (categoryMap[categorySlug]) {
+                    product.category_ids = [categoryMap[categorySlug]]
+                }
+
                 productsToCreate.push(product)
             }
         }
@@ -346,5 +362,6 @@ export default async function syncProductsJob(container: MedusaContainer) {
 
 export const config = {
     name: "sync-products",
-    schedule: "* * * * *", // Daily at midnight
+    // schedule: "0 0 * * *", // Production: Daily at midnight (00:00)
+    schedule: "* * * * *", // Testing: Every 1 minute
 }

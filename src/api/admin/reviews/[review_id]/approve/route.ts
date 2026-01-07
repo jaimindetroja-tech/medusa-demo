@@ -7,8 +7,9 @@ export async function POST(
 ) {
   const reviewService = req.scope.resolve("review") as ReviewModuleService
   const { review_id } = req.params
-  // TODO: Get admin ID from auth context
-  const adminId = "admin_user"
+
+  // Get admin ID from authenticated user context
+  const adminId = (req as any).auth?.actor_id || (req as any).auth?.user_id || "admin_user"
 
   try {
     const review = await reviewService.updateReviewStatus(review_id, "approved", adminId)
@@ -16,6 +17,7 @@ export async function POST(
     res.json({ review })
   } catch (error) {
     console.error("Error approving review:", error)
-    res.status(500).json({ error: "Failed to approve review" })
+    const message = error instanceof Error ? error.message : "Failed to approve review"
+    res.status(500).json({ error: message })
   }
 }

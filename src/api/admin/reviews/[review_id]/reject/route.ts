@@ -14,6 +14,7 @@ export async function POST(
     res.json({ review })
   } catch (error) {
     console.error("Error rejecting review:", error)
-    res.status(500).json({ error: "Failed to reject review" })
+    const message = error instanceof Error ? error.message : "Failed to reject review"
+    res.status(500).json({ error: message })
   }
 }

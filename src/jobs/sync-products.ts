@@ -1,19 +1,34 @@
-import { batchProductsWorkflow } from "../workflows/sync-batch"
 import { DummyJsonService } from "../services/dummy-json"
+import {
+  processAllBatchesInParallel,
+  logJobSummary,
+  SyncStats
+} from "../utils/product-sync-helpers"
 
-// Main Job Configuration
+// -----------------------------------------------------------------------------
+// CONFIGURATION
+// -----------------------------------------------------------------------------
 export const config = {
   name: "sync-products",
   schedule: process.env.SYNC_SCHEDULE || "*/30 * * * * *",
 }
 
+// -----------------------------------------------------------------------------
+// MAIN JOB
+// -----------------------------------------------------------------------------
 export default async function syncProductsJob(root: any) {
   const container = root.container || root
   const logger = container.resolve("logger")
 
-  logger.info("🚀 [Sync] Starting daily product sync job...")
+  // Config from environment
+  const BATCH_SIZE = parseInt(process.env.SYNC_BATCH_SIZE || "20")
+  const SAFE_MAX = parseInt(process.env.SYNC_SAFE_MAX || "5000")
+  const CONCURRENCY = parseInt(process.env.SYNC_CONCURRENCY || "5")
 
-  const stats = {
+  logger.info("🚀 [Sync] Starting daily product sync job...")
+  logger.info(`[Sync] Config: BatchSize=${BATCH_SIZE}, SafeMax=${SAFE_MAX}, Concurrency=${CONCURRENCY}`)
+
+  const stats: SyncStats = {
     totalProductsProcessed: 0,
     totalProductsCreated: 0,
     totalProductsUpdated: 0,
@@ -23,94 +38,28 @@ export default async function syncProductsJob(root: any) {
     batchesFailed: 0,
   }
 
-  const BATCH_SIZE = parseInt(process.env.SYNC_BATCH_SIZE || "20")
-  const SAFE_MAX = parseInt(process.env.SYNC_SAFE_MAX || "5000")
-
   try {
-    let skip = 0
-    let hasMore = true
+    // 1. Initial Fetch to get total count
+    logger.info(`[Sync] Fetching initial info...`)
+    const initialData = await DummyJsonService.fetchProductsPage(1, 0)
+    const total = initialData.total
+    const realTotal = Math.min(total, SAFE_MAX)
 
-    while (hasMore && skip < SAFE_MAX) {
-      // 1. Fetch
-      logger.info(
-        `[Sync] Fetching batch (Limit: ${BATCH_SIZE}, Skip: ${skip})...`
-      )
-      const data = await DummyJsonService.fetchProductsPage(BATCH_SIZE, skip)
+    logger.info(`[Sync] Total products to sync: ${realTotal}`)
 
-      const batch = data.products
-      if (!batch || batch.length === 0) {
-        hasMore = false
-        break
-      }
-
-      // 2. Process Batch via Workflow
-      logger.info(`[Sync] Processing batch of ${batch.length} products...`)
-
-      try {
-        const { result, errors } = await batchProductsWorkflow(container).run({
-          input: { products: batch },
-          throwOnError: false, // Handle gracefully
-        })
-
-        if (errors && errors.length > 0) {
-          logger.error(`[Sync] ❌ Batch failed with ${errors.length} errors.`)
-          errors.forEach((e) => logger.error(JSON.stringify(e)))
-          stats.totalErrors += errors.length
-          stats.batchesFailed++
-        } else {
-          // Extract statistics from workflow result
-          const batchStats = result as {
-            products: any
-            productsCreated: number
-            productsUpdated: number
-            categoriesCreated: number
-          }
-
-          stats.totalProductsCreated += batchStats.productsCreated
-          stats.totalProductsUpdated += batchStats.productsUpdated
-          stats.totalCategoriesCreated += batchStats.categoriesCreated
-          stats.totalProductsProcessed += batch.length
-          stats.batchesProcessed++
-
-          // Log batch statistics
-          logger.info(`[Sync] ✅ Batch completed successfully:`)
-          logger.info(`  - Products Created: ${batchStats.productsCreated}`)
-          logger.info(`  - Products Updated: ${batchStats.productsUpdated}`)
-          logger.info(`  - Categories Created: ${batchStats.categoriesCreated}`)
-        }
-      } catch (workflowErr) {
-        logger.error(
-          `[Sync] ❌ Critical Workflow Error: ${(workflowErr as Error).message}`
-        )
-        stats.totalErrors++
-        stats.batchesFailed++
-      }
-
-      // 3. Pagination
-      skip += BATCH_SIZE
-      if (skip >= data.total) {
-        hasMore = false
-      }
-    }
-
-    // Final summary
-    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    logger.info("✅ [Sync] Job completed successfully!")
-    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    logger.info(`📊 SYNC STATISTICS:`)
-    logger.info(
-      `  ├─ Total Products Processed: ${stats.totalProductsProcessed}`
+    // 2. Process ALL batches in TRUE PARALLEL
+    // Multiple workers run simultaneously, each fetching and processing independently
+    await processAllBatchesInParallel(
+      realTotal,
+      BATCH_SIZE,
+      CONCURRENCY,
+      container,
+      logger,
+      stats
     )
-    logger.info(`  ├─ Products Created: ${stats.totalProductsCreated} 🆕`)
-    logger.info(`  ├─ Products Updated: ${stats.totalProductsUpdated} 🔄`)
-    logger.info(`  ├─ Categories Created: ${stats.totalCategoriesCreated} 📁`)
-    logger.info(`  ├─ Batches Processed: ${stats.batchesProcessed}`)
-    logger.info(`  ├─ Batches Failed: ${stats.batchesFailed}`)
-    logger.info(
-      `  └─ Total Errors: ${stats.totalErrors} ${stats.totalErrors > 0 ? "⚠️" : "✓"
-      }`
-    )
-    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+    // 3. Final Summary
+    logJobSummary(logger, stats)
   } catch (err) {
     logger.error(`❌ [Sync] Job Crashed: ${(err as Error).message}`)
   }
